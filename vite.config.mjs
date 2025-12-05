@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  root: ".", // adjust if your source folder differs
   base: "/pdf-annotater/",
   optimizeDeps: {
     include: ["pdfjs-dist", "tesseract.js"],
