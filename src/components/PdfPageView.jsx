@@ -199,7 +199,7 @@ export default function PdfPageView({ pdf, pageNumber, tool, onSetPageTitle }) {
             }}
           />
         )}
-        {viewport?.width && viewport?.height && (
+        {tool !== "scan" && viewport?.width && viewport?.height && (
           <SvgOverlay
             width={viewport.width}
             height={viewport.height}
