@@ -83,7 +83,6 @@ export default function PdfPageView({ pdf, pageNumber, tool, onSetPageTitle }) {
     }
 
     if (text) {
-      console.log("text....", text);
       setScannedText(text);
       // update title ONLY
       // onSetPageTitle(i, text.split("\n")[0].slice(0, 120));
