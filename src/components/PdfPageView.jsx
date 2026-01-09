@@ -14,6 +14,7 @@ export default function PdfPageView({ pdf, pageNumber, tool, onSetPageTitle }) {
   const dragRef = useRef(null);
   const [rect, setRect] = useState(null);
   const [info, setInfo] = useState("");
+  const [scannedText, setScannedText] = useState([]);
   const containerRef = useRef(null);
 
   const clearScanArtifacts = () => {
@@ -25,6 +26,92 @@ export default function PdfPageView({ pdf, pageNumber, tool, onSetPageTitle }) {
 
     // clear OCR text
     setInfo("");
+  };
+
+  const cleanTextArray = (arr) => {
+    return arr
+      .map((s) => s.trim())
+      .filter((str) => {
+        if (!str) return false; // empty
+        if (str.length < 3) return false; // min length
+        if (/^\d/.test(str)) return false; // starts with number
+        if (/^[A-Z]\d+/i.test(str)) return false; // A101, B202
+        return true;
+      });
+  };
+
+  // ---------- FAST TEXT EXTRACTION (PDF.js) ----------
+  const extractPageText = async (page) => {
+    const content = await page.getTextContent();
+    const raw = content.items.map((i) => i.str);
+    return cleanTextArray(raw);
+  };
+
+  // ---------- OCR FALLBACK ----------
+  const ocrFullPage = async (page) => {
+    const viewport = page.getViewport({ scale: 2 });
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+
+    const result = await Tesseract.recognize(blob, "eng");
+    const raw = result.data.text.split("\n").map((l) => l.trim());
+
+    return cleanTextArray(raw);
+  };
+
+  const scanEntirePdf = async () => {
+    if (!pdf) return;
+
+    setInfo("Scanning entire PDF...");
+
+    const page = await pdf.getPage(pageNumber);
+
+    // 1️⃣ Try PDF text
+    let text = await extractPageText(page);
+
+    // 2️⃣ Fallback to OCR
+    if (!text) {
+      text = await ocrFullPage(page);
+    }
+
+    if (text) {
+      console.log("text....", text);
+      setScannedText(text);
+      // update title ONLY
+      // onSetPageTitle(i, text.split("\n")[0].slice(0, 120));
+    }
+
+    // scanning all the pages and get scanned text
+    /*
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+
+      // 1️⃣ Try PDF text
+      let text = await extractPageText(page);
+
+      // 2️⃣ Fallback to OCR
+      if (!text) {
+        text = await ocrFullPage(page);
+      }
+
+      if (text) {
+        console.log("text....", text);
+        // update title ONLY
+        // onSetPageTitle(i, text.split("\n")[0].slice(0, 120));
+      }
+    }
+
+    */
+
+    setInfo("PDF scan completed");
   };
 
   useEffect(() => {
@@ -175,6 +262,41 @@ export default function PdfPageView({ pdf, pageNumber, tool, onSetPageTitle }) {
         <span style={{ marginLeft: 12 }}>
           Mode: <em>{tool}</em>
         </span>
+
+        <button
+          style={{
+            background: "#4b8aff",
+            color: "#fff",
+            border: "1px solid #ddd",
+            padding: "8px 12px",
+            borderRadius: 6,
+            marginLeft: "10px",
+          }}
+          onClick={scanEntirePdf}
+        >
+          Scan Entire PDF
+        </button>
+        {scannedText.length > 0 && (
+          <button
+            style={{
+              background: "#f72630ff",
+              color: "#fff",
+              border: "1px solid #ddd",
+              padding: "8px 12px",
+              borderRadius: 6,
+              marginLeft: "10px",
+            }}
+            onClick={() => setScannedText([])}
+          >
+            Clear Scan
+          </button>
+        )}
+
+        {scannedText.length > 0 && (
+          <div>
+            <pre>{scannedText}</pre>
+          </div>
+        )}
       </div>
 
       <div style={{ position: "relative" }}>
